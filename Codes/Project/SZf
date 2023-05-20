@@ -1,0 +1,439 @@
+#include "FraunchPad_NTC.h"
+#include <Servo.h>
+#if defined(__MSP430FR5739__) // FraunchPad only
+#include "Energia.h"
+#else // error
+#error Platform not supported. FraunchPad only.
+#endif
+
+NTC_FR myNTC;
+Servo myservo;
+//used for buttons interrupts
+//用于按钮的中断
+volatile int flag = LOW;
+volatile int flag2 = LOW;
+//button ready counters and delay flags
+//按钮准备就绪计数器和延迟标志
+
+int count1=0;
+int count2=0;
+int button1Ready = 1;
+int button2Ready = 1;
+//servo position
+//servo位置
+
+int pos = 0;
+int servoPos;
+//mode toggle
+//0=Print name
+//1=Servo temp + swing
+//2=Serial monitor servo input
+//3=acceleromter angle
+//mode toggle
+//0=打印名称
+//1=伺服温度+摆动
+//2=串行监控伺服输入
+//3=加速器角度
+
+int mode = 1;
+//Name strings for mode 0 serial printing
+//用于模式0串行打印的名称字符串
+char name1[6] = {'T', 'r', 'e', 'n', 't','\0'};
+char name2[5] = {'A', 'l', 'e', 'x', '\0'};
+char name3[6] = {'b', 'l', 'a', 'n', 'k', '\0'};
+//mode names for serial printing
+//用于串行打印的模式名称
+
+char modeName[4][20] = {
+  "Names",
+  "Temperature",
+  "Servo Control",
+  "Position"
+};
+//temperature from NTC (must be int32_t)
+//来自NTC的温度（必须是int32_t）。
+
+int32_t temperature;
+//left and right direction toggle for swinging servo (0=right, 1=left)
+//摆动伺服的左右方向切换（0=右，1=左）。
+
+
+int dir = 0;
+//used to store analog signal from x, y and z axis of accelerometer
+//用于存储来自加速度计X、Y和Z轴的模拟信号
+int axis;
+//midpoint of accelerometer signals (modified below with push button)
+//加速器信号的中点（下面用按钮修改）。
+
+
+//signal range 400-600?
+////信号范围400-600？
+int midX=500;
+int midY=500;
+int midZ=500;
+
+//Accelerometer pins
+//加速器引脚
+const int xpin = 16; // x-axis of the accelerometer
+const int ypin = 17; // y-axis
+const int zpin = 18; // y-axis
+
+//Serial printing function used for constructing the temperature values
+//用于构建温度值的串行打印功能
+void printX10(int32_t i) {
+
+  if (i<0) {
+    Serial.print("-");
+    i = -i;
+  }
+  Serial.print(i/10, DEC);
+  Serial.print(".");
+  Serial.print(i%10, DEC);
+}
+
+void setup()
+{
+  //Initialise serial caomms 9600 baud rate
+  //初始化串行caomms 9600波特率
+
+  Serial.begin(9600);
+  //NTC is the temperature sensor, myNTC is the pseudonym for the function within the .h file declared at the top
+  //NTC是温度传感器，myNTC是顶部声明的.h文件中的函数的假名。
+
+
+  myNTC.begin();
+  Serial.println(myNTC.WhoAmI());
+  //Servo is input to pin 21, or 1.4
+  //Servo输入到21号引脚，即1.4
+
+  myservo.attach(22);
+
+  //Set push1 and push2 button pullup resistors
+  //设置推1和推2按钮的上拉电阻
+
+  pinMode(PUSH1, INPUT_PULLUP);
+  pinMode(PUSH2, INPUT_PULLUP);
+
+  //ISR's (Interrupt Servie Routines): blink and align (bottom of script) called on falling edge of push buttons
+  //ISR（中断服务程序）：闪烁和对齐（脚本的底部）在按钮的下降
+  沿被调用。
+
+
+  attachInterrupt(PUSH1, blink, FALLING);
+  attachInterrupt(PUSH2, align, FALLING);
+
+  //Set LED as outputs, used for accelerometer
+  //设置LED为输出，用于加速度计。
+
+  pinMode(LED1, OUTPUT);pinMode(LED5, OUTPUT);
+  pinMode(LED2, OUTPUT);pinMode(LED6, OUTPUT);
+  pinMode(LED3, OUTPUT);pinMode(LED7, OUTPUT);
+  pinMode(LED4, OUTPUT);pinMode(LED8, OUTPUT);
+
+  delay(500);
+}
+
+void loop()
+{
+      if (mode == 0)
+      {
+          //turn LEDs off
+          digitalWrite(LED1, LOW);digitalWrite(LED5, LOW);
+          digitalWrite(LED2, LOW);digitalWrite(LED6, LOW);
+          digitalWrite(LED3, LOW);digitalWrite(LED7, LOW);
+          digitalWrite(LED4, LOW);digitalWrite(LED8, LOW);
+
+          //Print names to serial monitor
+          Serial.println(name1);
+          Serial.println(name2);
+          Serial.println(name3);
+
+          	Serial.print("Mode: ");
+	Serial.print(mode+1);
+	Serial.print(": ");
+	Serial.print(modeName[mode]);
+	Serial.print("\n");
+      }
+      else if (mode == 1)
+      {
+          //turn LEDs off
+          digitalWrite(LED1, LOW);digitalWrite(LED5, LOW);
+          digitalWrite(LED2, LOW);digitalWrite(LED6, LOW);
+          digitalWrite(LED3, LOW);digitalWrite(LED7, LOW);
+          digitalWrite(LED4, LOW);digitalWrite(LED8, LOW);
+
+          	Serial.print("Mode: ");
+	Serial.print(mode+1);
+	Serial.print(": ");
+	Serial.print(modeName[mode]);
+	Serial.print("\n");
+
+          //TASK 2 - Servo temp
+          //Get temperature from NTC
+          //从NTC获取温度
+
+  myNTC.get();
+
+  myNTC.celsiusX10(temperature);
+  printX10(temperature);
+  Serial.print(" oC\t");
+
+
+          //Swing Servo if temperature is below threshold (in first if statement)
+      	 //如果温度低于阈值，摆动舵机（在第一个if语句中）。
+
+
+      	  if (temperature > 270)  {
+      		if (dir == 0)
+      		{
+            //swing right
+      			if (pos < 120)
+      			{
+      				pos = pos + 10;
+      			}
+      			else
+      			{
+              //change to left
+      				dir = 1;
+      			}
+      		}
+      		else
+      		{
+            //swing left
+      			if (pos > 0)
+      			{
+      				pos = pos - 10;
+      			}
+      			else
+      			{
+              //change to right
+      				dir = 0;
+      			}
+      		}
+      	}
+          //write position value to serial then read from serial then write to servo
+          //将位置值写入串口，然后从串口读取，再写入伺服系统
+
+
+          //This is redundant but it's what the lab said to do
+          //这是多余的，但这是实验室说要做的。
+
+
+        	myservo.write(pos);
+      }
+      else if (mode == 2)
+      {
+      	//TASK 4 - Accelerometer angle
+        //reads angle from defined x pin
+        //Prints the x,y,z axess serially
+        //Values determined by the center value
+        //任务4--加速器角度
+        //从定义的x针中读取角度
+        //连续打印x、y、z轴
+        //由中心值决定的数值
+
+      	axis = analogRead(xpin);
+      	Serial.print("x-axis: ");
+      	Serial.print(midX-axis);
+        Serial.print("\n");
+      	axis = analogRead(ypin);
+      	Serial.print("y-axis: ");
+      	Serial.print(midY-axis);
+      	Serial.print("\n");
+      	axis = analogRead(zpin);
+      	Serial.print("z-axis: ");
+      	Serial.print(midZ-axis);
+      	Serial.print("\n");
+
+       //Light up LEDS for the x-axis depending on how far they are off center
+       //根据它们偏离中心的程度，点亮X轴的LEDS
+
+
+        if (midX-axis > 0)
+        {
+          digitalWrite(LED1, HIGH);
+        if (midX-axis > 25)
+        {
+            digitalWrite(LED2, HIGH);
+            if (midX-axis > 50)
+            {
+                digitalWrite(LED3, HIGH);
+                if (midX-axis > 75)
+                {
+                    digitalWrite(LED4, HIGH);
+                }
+                else
+                {
+                    digitalWrite(LED4, LOW);
+                }
+            }
+            else
+            {
+              digitalWrite(LED3, LOW);
+              digitalWrite(LED4, LOW);
+            }
+        }
+        else
+        {
+          digitalWrite(LED2, LOW);
+          digitalWrite(LED3, LOW);
+          digitalWrite(LED4, LOW);
+        }
+        }
+        else
+        {
+          digitalWrite(LED1, LOW);
+          digitalWrite(LED2, LOW);
+          digitalWrite(LED3, LOW);
+          digitalWrite(LED4, LOW);
+        }
+
+        if (midX-axis < 0)
+        {
+          digitalWrite(LED5, HIGH);
+        if (midX-axis < -25)
+        {
+            digitalWrite(LED6, HIGH);
+            if (midX-axis < -50)
+            {
+                digitalWrite(LED7, HIGH);
+                if (midX-axis < -75)
+                {
+                    digitalWrite(LED8, HIGH);
+                }
+                else
+                {
+                    digitalWrite(LED8, LOW);
+                }
+            }
+            else
+            {
+              digitalWrite(LED7, LOW);
+              digitalWrite(LED8, LOW);
+            }
+        }
+        else
+        {
+          digitalWrite(LED6, LOW);
+          digitalWrite(LED7, LOW);
+          digitalWrite(LED8, LOW);
+        }
+        }
+        else
+        {
+          digitalWrite(LED5, LOW);
+          digitalWrite(LED6, LOW);
+          digitalWrite(LED7, LOW);
+          digitalWrite(LED8, LOW);
+        }
+
+        //If PUSH2 ISR occured
+        //如果发生了PUSH2 ISR
+
+      	if (flag2 == HIGH) {
+          //if the counter for button pushed counted all the way
+          //如果按下的按钮的计数器一直在计数
+      		if (button2Ready == 1)
+      		{
+      			button2Ready = 0;
+      			count2 = 0;
+            //set all the mid points to the current x,y,z readings
+            //将所有的中间点设置为当前的x、y、z读数
+
+
+      			midX=analogRead(xpin);
+      			midY=analogRead(ypin);
+            midZ=analogRead(zpin);
+      		}
+          flag2 = LOW;
+      	}
+
+      	Serial.print("Mode: ");
+	Serial.print(mode+1);
+	Serial.print(": ");
+	Serial.print(modeName[mode]);
+	Serial.print("\n");
+      }
+      else
+      if (mode == 3)
+      {
+          pos=Serial.parseInt();
+          if (Serial.read() != 0)
+          {
+           myservo.write(pos);
+           delay(1000);
+          }
+          Serial.print("Name: ");
+      	  Serial.print(mode+1);
+      	  Serial.print(": ");
+      	  Serial.print(modeName[mode]);
+      	  Serial.print("\n");
+          Serial.print("pos = ");
+          Serial.print(pos);
+          Serial.print("\n");
+
+
+      }
+
+      delay(250);
+
+      	//TASK 5 - Mode selection
+        //if PUSH ISR occured
+        //TASK 5 - 模式选择
+        //如果PUSH ISR发生了
+
+      	if (flag == HIGH) {
+      		if (button1Ready == 1)
+      		{
+      			button1Ready = 0;
+      			count1 = 0;
+            //increment the mode
+            //增加该模式
+
+      			if (mode < 3)
+      			{
+      				mode = mode + 1;
+      			}
+      			else
+      			{
+      				mode = 0;
+      			}
+      		}
+          flag = LOW;
+      	}
+
+        //Button counter (debounce)
+        //按钮计数器（去抖）。
+
+      	if (count1 < 20)
+      	{
+      		count1 = count1 + 1;
+      	}
+      	else
+      	{
+      		button1Ready = 1;
+      	}
+
+      	if (count2 < 20)
+      	{
+      		count2 = count2 + 1;
+      	}
+      	else
+      	{
+      		button2Ready = 1;
+      	}
+
+       	delay(10);
+}
+
+//ISR's for PUSH1 and PUS2 below, set flags
+//下面是PUSH1和PUS2的ISR，设置标志。
+void blink ()
+{
+  flag = HIGH;
+}
+
+void align ()
+{
+ flag2 = HIGH;
+}
