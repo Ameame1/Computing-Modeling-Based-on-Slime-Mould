@@ -1,6 +1,9 @@
 # Agent-Based Modeling of Demographic Changes in Urbanization
 [<img src="Images/Math.png" alt="image" width="">](https://research-repository.uwa.edu.au/en/persons/shannon-algar)
 
+## Ame Liu
+[<img src="Images/Email.png" alt="image" width="">](mailto:22910358@student.uwa.edu.au)
+
 ## Abstract
 In this research, we employ an agent-based modeling approach to simulate the demographic changes in modern urbanization in China. The model aims to understand the evolution of urban systems and patterns of demographic change, shedding light on the theory of urban change. We propose that emerging cities experience a large influx of population into the city center initially, followed by a portion of the population outflow after reaching population saturation. The model demonstrates that the distribution of population after reaching equilibrium is similar to the existing map of urban construction. Additionally, the model reveals that the urbanization process leads to a widening gap between the rich and the poor, highlighting the socio-economic implications of urban development.
 
