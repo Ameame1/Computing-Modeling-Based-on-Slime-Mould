@@ -23,7 +23,7 @@ The model's output provides statistical insights into the simulated urbanization
 - The population initially grows and moves towards the city center. Eventually, the population spreads outward and reaches an equilibrium state.
 - ![balance.gif](Gif%2Fbalance.gif)
 
-#### _~~Balance~~_ State:
+#### Balance State:
 
 - ![Balance State.png](Images%2FBalance%20State.png)
 
