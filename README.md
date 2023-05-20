@@ -1,7 +1,7 @@
 # Agent-Based Modeling of Demographic Changes in Urbanization
 [<img src="Images/Math.png" alt="image" width="">](https://research-repository.uwa.edu.au/en/persons/shannon-algar)
 
-## Supervised by **___Dr. Shannon___**
+## Supervised by [**___Dr. Shannon___**](https://research-repository.uwa.edu.au/en/persons/shannon-algar)
 ## Ame Liu
 [<img src="Images/Email.png" alt="image" width="">](mailto:22910358@student.uwa.edu.au)
 
